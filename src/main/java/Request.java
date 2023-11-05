@@ -11,53 +11,34 @@ import java.util.List;
 
 public class Request {
    private String method;
-   private String path;
+   private String fullpath;
+   private String shortPath;
    private List<String> headers;
-   private String body;
    private List<NameValuePair> params;
 
-   public Request(String method, String path, List<String> headers, List<NameValuePair> params) {
+   public Request(String method, String fullpath, String shortPath, List<String> headers, List<NameValuePair> params) {
       this.method = method;
-      this.path = path;
+      this.fullpath = fullpath;
       this.headers = headers;
       this.params = params;
-   }
-
-   public Request(String method, String path) {
-      this.method = method;
-      this.path = path;
+      this.shortPath = shortPath;
    }
 
    //GnS ===========================
    public String getMethod() {
       return method;
    }
-   public void setMethod(String method) {
-      this.method = method;
-   }
    public List<String> getHeaders() {
       return headers;
-   }
-   public void setHeaders(List<String> headers) {
-      this.headers = headers;
    }
    public List<NameValuePair> getParams() {
       return params;
    }
-   public void setParams(List<NameValuePair> params) {
-      this.params = params;
+   public String getFullpath() {
+      return fullpath;
    }
-   public String getBody() {
-      return body;
-   }
-   public void setBody(String body) {
-      this.body = body;
-   }
-   public String getPath() {
-      return path;
-   }
-   public void setPath(String path) {
-      this.path = path;
+   public String getShortPath() {
+      return shortPath;
    }
 
    static Request parseRequest(BufferedInputStream in) throws IOException, URISyntaxException {
@@ -108,7 +89,8 @@ public class Request {
       final var headerBytes = in.readNBytes(headersEnd - headersStart);
       List<String> headers = Arrays.asList(new String(headerBytes).split("\r\n"));
       List<NameValuePair> params = URLEncodedUtils.parse(new URI(path), StandardCharsets.UTF_8);
-      return new Request(method, path, headers, params);
+      String shortPath = path.split("\\?")[0];
+      return new Request(method, path, shortPath,headers, params);
    }
 
    private static int indexOf(byte[] array, byte[] target, int start, int max) {

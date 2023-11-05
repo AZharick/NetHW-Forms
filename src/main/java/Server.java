@@ -1,11 +1,9 @@
-import org.apache.http.client.utils.URLEncodedUtils;
+import org.apache.http.NameValuePair;
 
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URISyntaxException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -56,45 +54,45 @@ public class Server {
    }
 
    private void handleRequest(Socket socket) throws IOException {
-      while (true) {
-         try (
-                 final var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                 final var out = new BufferedOutputStream(socket.getOutputStream())
-         ) {
-            final var requestLine = in.readLine();
-            System.out.println(getDateAndTime() + "> request received: " + requestLine);
-            final var parts = requestLine.split(" ");
+      try (
+              final var in = new BufferedInputStream(socket.getInputStream());
+              final var out = new BufferedOutputStream(socket.getOutputStream())
+      ) {
+         Request request = Request.parseRequest(in);
+         displayRequest(request);
 
-            if (parts.length != 3) {
-               System.out.println(getDateAndTime() + "*** wrong request format! ***");
-               clientSocket.close();
-               return;
-            }
+         if (request.getMethod().equals("GET") && getHandlers.containsKey(request.getShortPath())) {
+            Handler handler = getHandlers.get(request.getShortPath());
+            handler.handle(request, out);
 
-            final var method = parts[0];
-            final var path = parts[1];
-            Request request = new Request(method, path);
+         } else if (request.getMethod().equals("POST") && postHandlers.containsKey(request.getShortPath())) {
+            Handler handler = postHandlers.get(request.getShortPath());
+            handler.handle(request, out);
 
-            if (request.getMethod().equals("GET") && getHandlers.containsKey(request.getPath())) {
-               Handler handler = getHandlers.get(request.getPath());
-               handler.handle(request, out);
-
-            } else if (request.getMethod().equals("POST") && postHandlers.containsKey(request.getPath())) {
-               Handler handler = postHandlers.get(request.getPath());
-               handler.handle(request, out);
-
-            } else {
-               System.out.println(getDateAndTime() + "> 404");
-               out.write(("HTTP/1.1 404 Not Found\r\n" +
-                       "Content-Length: 0\r\n" +
-                       "Connection: close\r\n" +
-                       "\r\n").getBytes());
-            }
-            out.flush();
-            return;
-         }//try-with-res
-      }//while
+         } else {
+            System.out.println(getDateAndTime() + "> 404");
+            out.write(("HTTP/1.1 404 Not Found\r\n" +
+                    "Content-Length: 0\r\n" +
+                    "Connection: close\r\n" +
+                    "\r\n").getBytes());
+         }
+         out.flush();
+      }//try-with-res
+      catch (URISyntaxException e) {
+         throw new RuntimeException(e);
+      }
    }//handleRequest
+
+   private void displayRequest(Request request) {
+      System.out.println("\nDisplaying request:");
+      System.out.println("Method: " + request.getMethod());
+      System.out.println("Path: " + request.getFullpath());
+      System.out.println("Headers: " + request.getHeaders());
+      System.out.println("Query: ");
+      for (NameValuePair param : request.getParams()) {
+         System.out.println(param.getName() + " : " + param.getValue());
+      }
+   }
 
    private static String getDateAndTime() {
       String datePattern = "[HH:mm:ss] ";
@@ -103,4 +101,4 @@ public class Server {
       return d.format(today);
    }
 
-}//Server
+}
